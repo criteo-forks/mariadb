@@ -20,8 +20,16 @@ describe 'centos::mariadb::default' do
     expect(chef_run).to include_recipe('mariadb::server')
   end
 
-  it 'Include redhat recipe' do
-    expect(chef_run).to include_recipe('mariadb::_redhat_server')
+  it 'Include redhat preinstall recipe' do
+    expect(chef_run).to include_recipe('mariadb::_redhat_server_preinstall')
+  end
+
+  it 'Include redhat postinstall recipe' do
+    expect(chef_run).to include_recipe('mariadb::_redhat_server_postinstall')
+  end
+
+  it 'Include mariadb postinstall recipe' do
+    expect(chef_run).to include_recipe('mariadb::_mariadb_postinstall')
   end
 
   it 'Installs Mariadb-server package' do
@@ -56,23 +64,17 @@ describe 'centos::mariadb::default' do
   end
 
   it 'Create Log directory' do
-    directory_log = chef_run.directory('/var/log/mysql')
-    first_run_block = chef_run.ruby_block('MariaDB first start')
-    expect(directory_log).to do_nothing
-    expect(first_run_block).to do_nothing
-    expect(first_run_block).to notify('directory[/var/log/mysql]')
-      .to(:create)
-      .immediately
+    expect(chef_run).to create_directory('/var/log/mysql')
+      .with(
+        user: 'mysql',
+        group: 'mysql',
+        mode: '0755'
+          )
   end
 
   it 'Enable and start MariaDB service' do
-    server_package = chef_run.package('MariaDB-server')
-    first_run_block = chef_run.ruby_block('MariaDB first start')
-    expect(server_package).to notify('service[mysql]')
-      .to(:enable)
-    expect(first_run_block).to notify('service[mysql]')
-      .to(:start)
-      .immediately
+    expect(chef_run).to enable_service('mysql')
+    expect(chef_run).to start_service('mysql')
   end
 
   it 'Don t execute root password change at install' do
@@ -102,8 +104,8 @@ describe 'centos::mariadb::default' do
       expect(data_directory).to notify('bash[move-datadir]')
         .to(:run)
         .immediately
-      expect(data_directory).to notify('service[mysql]')
-        .to(:start)
+      expect(data_directory).to notify('ruby_block[restart_mysql]')
+        .to(:create)
         .immediately
     end
 
